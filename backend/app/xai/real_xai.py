@@ -105,11 +105,12 @@ class RealXAIEngine:
             inp = image_tensor.clone().detach().requires_grad_(True)
             output = model(inp)
             score = output[0, target_class_idx]
-            score.backward(retain_graph=True)
+            score.backward()
         finally:
             # Strictly remove hooks in finally block to eliminate memory leaks and graph pollution
             h1.remove()
             h2.remove()
+            del inp, output, score
 
         if not activations or not gradients:
             # Uniform fallback if hooks didn't capture

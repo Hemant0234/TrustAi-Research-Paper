@@ -449,13 +449,12 @@ def get_real_case_summaries(limit: int = 50) -> List[Any]:
         ]
         out = []
         for cid, label, conf, unc in isic_cases[:limit]:
-            try:
-                img_path = _get_or_create_isic_image(cid)
-                inf = _run_inference(img_path)
-                u = float(inf["uncertainty_score"])
-                conf_val = float(inf["confidence"])
-                pred_label = inf["predicted_label"] or label
-            except Exception:
+            if cid in _case_cache:
+                cached = _case_cache[cid]
+                u = float(cached.uncertainty.score if hasattr(cached.uncertainty, 'score') else unc)
+                conf_val = float(cached.prediction.probability if hasattr(cached.prediction, 'probability') else conf)
+                pred_label = str(cached.prediction.label if hasattr(cached.prediction, 'label') else label)
+            else:
                 u = unc
                 conf_val = conf
                 pred_label = label
@@ -701,8 +700,15 @@ def get_real_case_detail(case_id: str) -> Optional[Any]:
                 "weights_version": "efficientnet_b4_rwightman" if is_dermo else "densenet121_nih_chestxray14_best",
                 "image_path": img_path
             }
-        )
+        if len(_case_cache) >= 5:
+            # Strictly evict oldest entry to prevent RAM buildup on 512MB environments
+            try:
+                _case_cache.pop(next(iter(_case_cache)))
+            except Exception:
+                pass
         _case_cache[case_id] = response
+        import gc
+        gc.collect()
         return response
     except Exception as e:
         print(f"[RealCases] Detail error for {case_id}: {e}")

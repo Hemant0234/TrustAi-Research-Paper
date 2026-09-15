@@ -29,6 +29,14 @@ from app.quality.real_xqi import RealXQIEngine
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
+# Constrain PyTorch thread memory footprint on 512MB RAM environments
+try:
+    import torch
+    torch.set_num_threads(1)
+    torch.set_num_interop_threads(1)
+except Exception:
+    pass
+
 app = FastAPI(
     title="TrustXAI-Med Backend API",
     description="Uncertainty-Aware Hybrid Explainable AI Research Platform for Medical Image Diagnosis",
@@ -323,7 +331,7 @@ def _execute_real_inference_pipeline(
     gradcam_mat = RealXAIEngine.generate_gradcam_plus_plus(
         active_model, img_tensor, top_idx, grid_size=32, target_layer_name=target_hook_layer
     )
-    ig_mat = RealXAIEngine.generate_integrated_gradients(active_model, img_tensor, top_idx, steps=25, grid_size=32)
+    ig_mat = RealXAIEngine.generate_integrated_gradients(active_model, img_tensor, top_idx, steps=10, grid_size=32)
     shap_mat = RealXAIEngine.generate_superpixel_shap(active_model, img_tensor, top_idx, grid_size=32)
     att_mat = RealXAIEngine.generate_attention_rollout(active_model, img_tensor, grid_size=32)
 
@@ -354,6 +362,11 @@ def _execute_real_inference_pipeline(
     buf = io.BytesIO()
     image.save(buf, format="PNG")
     b64_img = f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode('utf-8')}"
+
+    # Explicitly clear tensors and invoke garbage collector
+    del img_tensor
+    import gc
+    gc.collect()
 
     return {
         "case_id": f"UPLOAD-{filename[:12]}",
