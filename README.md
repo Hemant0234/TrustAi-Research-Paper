@@ -577,3 +577,5 @@ If you use TrustXAI-Med in academic work, please cite:
 ## License
 
 This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
+#   T r u s t A i - R e s e a r c h - P a p e r  
+ 
