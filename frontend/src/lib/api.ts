@@ -1,6 +1,7 @@
 import type { CaseAnalysis, CaseSummary, PerturbationResult } from '../types';
 
-const BASE_URL = import.meta.env.VITE_API_URL || '';
+const DEFAULT_RENDER_URL = 'https://trustxai-backend.onrender.com';
+const BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? DEFAULT_RENDER_URL : '');
 
 // ---------------------------------------------------------------------------
 // Typed API helpers
