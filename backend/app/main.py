@@ -46,6 +46,16 @@ app.add_middleware(
 # -------------------------------------------------------------
 # Telemetry & Health
 # -------------------------------------------------------------
+@app.get("/")
+def root_status():
+    return {
+        "status": "healthy",
+        "service": "TrustXAI-Med Backend API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/api/health"
+    }
+
 @app.get("/api/health")
 def health_check():
     return {
