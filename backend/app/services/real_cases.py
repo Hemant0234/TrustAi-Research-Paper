@@ -700,6 +700,7 @@ def get_real_case_detail(case_id: str) -> Optional[Any]:
                 "weights_version": "efficientnet_b4_rwightman" if is_dermo else "densenet121_nih_chestxray14_best",
                 "image_path": img_path
             }
+        )
         if len(_case_cache) >= 5:
             # Strictly evict oldest entry to prevent RAM buildup on 512MB environments
             try:
