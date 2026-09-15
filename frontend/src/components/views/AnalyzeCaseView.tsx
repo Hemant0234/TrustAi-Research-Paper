@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ZoomIn,
   ZoomOut,
@@ -22,6 +22,7 @@ interface AnalyzeCaseViewProps {
   onRecalculateFusion: (weights: Record<string, number>) => Promise<void>;
   onRecalculateXQI: (weights: Record<string, number>) => Promise<void>;
   onNavigateToReports: () => void;
+  onCaseUploaded: (newCase: CaseAnalysis) => void;
 }
 
 export const AnalyzeCaseView: React.FC<AnalyzeCaseViewProps> = ({
@@ -30,9 +31,60 @@ export const AnalyzeCaseView: React.FC<AnalyzeCaseViewProps> = ({
   onSelectCase,
   onRecalculateFusion,
   onRecalculateXQI,
-  onNavigateToReports
+  onNavigateToReports,
+  onCaseUploaded
 }) => {
   const [selectedOverlay, setSelectedOverlay] = useState<string>('fused');
+  const [modelRegistry, setModelRegistry] = useState<any[]>([
+    { modality: 'chest_xray', name: 'Chest X-Ray (DenseNet-121)' },
+    { modality: 'dermoscopy', name: 'Dermoscopy (EfficientNet-B4)' },
+    { modality: 'brain_mri', name: 'Brain MRI (Swin-B)' }
+  ]);
+  const [uploadModality, setUploadModality] = useState<string>(() => {
+    if (currentCase.case_id.startsWith('ISIC') || currentCase.modality?.toLowerCase().includes('dermo')) return 'dermoscopy';
+    if (currentCase.case_id.startsWith('BraTS') || currentCase.modality?.toLowerCase().includes('brain') || currentCase.modality?.toLowerCase().includes('mri')) return 'brain_mri';
+    return 'chest_xray';
+  });
+  const [isUploading, setIsUploading] = useState<boolean>(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { api } = await import('../../lib/api');
+        const reg = await api.getModelsRegistry();
+        if (Array.isArray(reg) && reg.length > 0) {
+          setModelRegistry(reg);
+        }
+      } catch (e) {
+        console.warn('Failed to load model registry', e);
+      }
+    })();
+  }, []);
+
+  const handleFileSelected = async (file: File) => {
+    const fn = file.name.toLowerCase();
+    let detected = uploadModality;
+    if (fn.includes('isic') || fn.includes('skin') || fn.includes('melanoma') || fn.includes('nevus')) {
+      detected = 'dermoscopy';
+    } else if (fn.includes('brats') || fn.includes('brain') || fn.includes('mri') || fn.includes('glioma')) {
+      detected = 'brain_mri';
+    } else if (fn.includes('cxr') || fn.includes('chest') || fn.includes('chexpert') || fn.includes('nih') || /^000\d+/.test(fn)) {
+      detected = 'chest_xray';
+    }
+    setUploadModality(detected);
+
+    setIsUploading(true);
+    try {
+      const { api } = await import('../../lib/api');
+      const result = await api.uploadImageForInference(file, detected);
+      onCaseUploaded(result);
+    } catch (err: any) {
+      alert(`Inference failed: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const confPercent = (currentCase.prediction.probability * 100).toFixed(1);
   const isReliable = currentCase.reliability.level === 'RELIABLE';
   const isCaution = currentCase.reliability.level === 'CAUTION';
@@ -78,23 +130,37 @@ export const AnalyzeCaseView: React.FC<AnalyzeCaseViewProps> = ({
             ))}
           </div>
 
-          {/* Upload Unseen Image for Real Inference */}
-          <label className="cursor-pointer text-xs px-2.5 py-1 rounded-md font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs flex items-center space-x-1.5 transition-all">
-            <span>+ Upload Scan</span>
+          {/* Explicit Modality Selector Dropdown */}
+          <div className="flex items-center space-x-1.5 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Modality:</span>
+            <select
+              value={uploadModality}
+              onChange={(e) => setUploadModality(e.target.value)}
+              className="text-xs bg-white border border-slate-300 rounded px-2 py-0.5 text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+              title="Target Diagnostic Model Backbone for Inference"
+            >
+              {modelRegistry.map((m) => (
+                <option key={m.modality} value={m.modality}>
+                  {m.name || m.architecture}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Upload Scan Button */}
+          <label className={`cursor-pointer text-xs px-2.5 py-1 rounded-md font-semibold text-white shadow-2xs flex items-center space-x-1.5 transition-all ${
+            isUploading ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+          }`}>
+            <span>{isUploading ? 'Processing...' : '+ Upload Scan'}</span>
             <input
               type="file"
               accept="image/*"
+              disabled={isUploading}
               className="hidden"
-              onChange={async (e) => {
+              onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) {
-                  try {
-                    const result = await (await import('../../lib/api')).api.uploadImageForInference(file);
-                    // Pass to parent or update state
-                    alert(`Inference completed for ${file.name}: Predicted ${result.prediction.label} (${(result.prediction.probability * 100).toFixed(1)}%) with ${result.uncertainty.level} uncertainty.`);
-                  } catch (err: any) {
-                    alert(err.message || 'Inference failed');
-                  }
+                  handleFileSelected(file);
                 }
               }}
             />

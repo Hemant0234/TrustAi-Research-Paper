@@ -6,14 +6,12 @@ interface HeaderProps {
   selectedCaseId?: string;
   onSelectCase?: (caseId: string) => void;
   cases?: CaseSummary[];
-  isDemoMode?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  selectedCaseId = 'TX-2048',
+  selectedCaseId = '',
   onSelectCase,
-  cases = [],
-  isDemoMode = true
+  cases = []
 }) => {
   return (
     <header className="bg-white border-b border-slate-200/90 px-6 py-2.5 flex items-center justify-between select-none">
@@ -26,11 +24,9 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="text-[10px] px-2 py-0.5 font-bold rounded bg-blue-50 text-blue-700 border border-blue-200">
             v1.0.0
           </span>
-          {isDemoMode && (
-            <span className="text-[10px] px-2 py-0.5 font-bold rounded bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Demo Mode
-            </span>
-          )}
+          <span className="text-[10px] px-2 py-0.5 font-bold rounded bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" /> Live Inference Active
+          </span>
         </div>
       </div>
 

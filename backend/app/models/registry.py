@@ -14,36 +14,9 @@ class ModelMetadata(BaseModel):
     parameters: str
     status: str
     layer_hook: str
+    is_active: bool = False
 
 MODEL_REGISTRY: List[ModelMetadata] = [
-    ModelMetadata(
-        id="densenet-121",
-        name="DenseNet-121 (Radiology Backbone)",
-        architecture="DenseNet-121 (Huang et al., CVPR 2017)",
-        domain="Chest Radiograph (CXR)",
-        default_dataset="CheXpert",
-        task="Thoracic Multi-Label Classification",
-        auc_roc=0.912,
-        accuracy=88.4,
-        calibration_ece=0.048,
-        parameters="7.0M",
-        status="Active (Research Baseline)",
-        layer_hook="features.denseblock4.denselayer16.conv2"
-    ),
-    ModelMetadata(
-        id="resnet-50",
-        name="ResNet-50 (Deep Residual Benchmark)",
-        architecture="ResNet-50 (He et al., CVPR 2016)",
-        domain="Chest Radiograph (CXR)",
-        default_dataset="CheXpert",
-        task="Thoracic Multi-Label Classification",
-        auc_roc=0.898,
-        accuracy=86.7,
-        calibration_ece=0.062,
-        parameters="23.5M",
-        status="Available",
-        layer_hook="layer4.2.conv3"
-    ),
     ModelMetadata(
         id="efficientnet-b4",
         name="EfficientNet-B4 (Dermoscopy)",
@@ -55,8 +28,23 @@ MODEL_REGISTRY: List[ModelMetadata] = [
         accuracy=90.1,
         calibration_ece=0.038,
         parameters="19.3M",
-        status="Active",
-        layer_hook="_blocks.31._project_conv"
+        status="Active (Primary Backbone)",
+        layer_hook="_blocks.31._project_conv",
+        is_active=True
+    ),
+    ModelMetadata(
+        id="densenet-121",
+        name="DenseNet-121 (Radiology Backbone)",
+        architecture="DenseNet-121 (Huang et al., CVPR 2017)",
+        domain="Chest Radiograph (CXR)",
+        default_dataset="CheXpert",
+        task="Thoracic Multi-Label Classification",
+        auc_roc=0.912,
+        accuracy=88.4,
+        calibration_ece=0.048,
+        parameters="7.0M",
+        status="Available (Research Baseline)",
+        layer_hook="features.denseblock4.denselayer16.conv2"
     ),
     ModelMetadata(
         id="vit-base",

@@ -64,7 +64,7 @@ export const SettingsView: React.FC = () => {
     async function checkHealth() {
       setIsLoadingHealth(true);
       try {
-        const health = await api.getHealth();
+        const health = await api.healthCheck();
         setSystemHealth(health);
       } catch (err) {
         setSystemHealth({
@@ -78,6 +78,24 @@ export const SettingsView: React.FC = () => {
       }
     }
     checkHealth();
+
+    // Load saved settings from backend API
+    async function loadBackendSettings() {
+      try {
+        const backendSettings = await api.getSettings();
+        if (backendSettings) {
+          if (backendSettings.alpha_penalty !== undefined) setAlphaPenalty(backendSettings.alpha_penalty);
+          if (backendSettings.mc_dropout_samples !== undefined) setMcDropoutSamples(backendSettings.mc_dropout_samples);
+          if (backendSettings.faithfulness_weight !== undefined) setFaithfulnessWeight(backendSettings.faithfulness_weight);
+          if (backendSettings.localization_weight !== undefined) setLocalizationWeight(backendSettings.localization_weight);
+          if (backendSettings.stability_weight !== undefined) setStabilityWeight(backendSettings.stability_weight);
+          if (backendSettings.robustness_weight !== undefined) setRobustnessWeight(backendSettings.robustness_weight);
+        }
+      } catch (e) {
+        console.warn('Could not load backend settings:', e);
+      }
+    }
+    loadBackendSettings();
 
     // Load saved settings from localStorage if available
     try {
@@ -107,7 +125,7 @@ export const SettingsView: React.FC = () => {
     setRobustnessWeight(20);
   };
 
-  const handleSaveSettings = () => {
+  const handleSaveSettings = async () => {
     const config = {
       faithfulnessWeight,
       localizationWeight,
@@ -133,10 +151,25 @@ export const SettingsView: React.FC = () => {
     };
     try {
       localStorage.setItem('trustxai_settings', JSON.stringify(config));
-      setSaveToast('System configuration saved successfully.');
+      // Bind directly to live backend API (ERS Reliability Coefficient alpha)
+      await api.saveSettings({
+        alpha_penalty: alphaPenalty,
+        mc_dropout_samples: mcDropoutSamples,
+        faithfulness_weight: faithfulnessWeight,
+        localization_weight: localizationWeight,
+        stability_weight: stabilityWeight,
+        robustness_weight: robustnessWeight,
+        reliable_threshold: reliableThreshold,
+        caution_threshold: cautionThreshold,
+        default_fusion_strategy: defaultFusionStrategy,
+        compute_device: computeDevice
+      });
+      setSaveToast('System configuration & Reliability Coefficient (alpha) bound to live backend successfully.');
       setTimeout(() => setSaveToast(null), 3500);
     } catch (err) {
       console.error('Failed to save settings:', err);
+      setSaveToast('Saved locally; backend sync error.');
+      setTimeout(() => setSaveToast(null), 3500);
     }
   };
 

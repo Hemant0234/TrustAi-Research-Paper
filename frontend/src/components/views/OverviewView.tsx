@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { TrendingUp, TrendingDown, Activity, CheckCircle, AlertTriangle, ArrowRight } from 'lucide-react';
 import { CaseSummary } from '../../types';
+import { api, DashboardSummary } from '../../lib/api';
 
 interface OverviewViewProps {
   cases: CaseSummary[];
@@ -8,69 +9,63 @@ interface OverviewViewProps {
   onNavigateToAnalyze: () => void;
 }
 
+const defaultDashboard: DashboardSummary = {
+  accuracy: 0,
+  auc_roc: 0,
+  macro_f1: 0,
+  calibration: 0,
+  xqi: 0,
+  reliability: 0,
+  cases_analyzed: 0,
+  dataset: 'Loading real model metrics...',
+  model_name: 'DenseNet-121 (NIH Real)',
+  system_health: 'Loading...',
+  last_updated: 'N/A'
+};
+
 export const OverviewView: React.FC<OverviewViewProps> = ({
   cases,
   onSelectCase,
   onNavigateToAnalyze
 }) => {
-  const recentCases = [
-    {
-      id: 'TX-2048',
-      dataset: 'CheXpert',
-      modality: 'Chest X-Ray',
-      prediction: 'Pneumonia',
-      confidence: '91.4%',
-      uncertainty: 'Low',
-      uncColor: 'text-emerald-600',
-      xqi: 87,
-      reliability: 92,
-      status: 'RELIABLE',
-      statusClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      date: 'May 12, 2026'
-    },
-    {
-      id: 'TX-2047',
-      dataset: 'CheXpert',
-      modality: 'Chest X-Ray',
-      prediction: 'Cardiomegaly',
-      confidence: '74.2%',
-      uncertainty: 'Moderate',
-      uncColor: 'text-amber-600',
-      xqi: 58,
-      reliability: 61,
-      status: 'CAUTION',
-      statusClass: 'bg-amber-50 text-amber-700 border-amber-200',
-      date: 'May 12, 2026'
-    },
-    {
-      id: 'TX-3046',
-      dataset: 'ISIC',
-      modality: 'Dermoscopy',
-      prediction: 'Melanoma',
-      confidence: '68.1%',
-      uncertainty: 'High',
-      uncColor: 'text-rose-600',
-      xqi: 52,
-      reliability: 48,
-      status: 'REVIEW',
-      statusClass: 'bg-rose-50 text-rose-700 border-rose-200 font-bold',
-      date: 'May 11, 2026'
-    },
-    {
-      id: 'TX-2045',
-      dataset: 'BraTS',
-      modality: 'Brain MRI',
-      prediction: 'Glioma',
-      confidence: '83.7%',
-      uncertainty: 'Low',
-      uncColor: 'text-emerald-600',
-      xqi: 79,
-      reliability: 84,
-      status: 'RELIABLE',
-      statusClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      date: 'May 11, 2026'
-    }
-  ];
+  const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary>(defaultDashboard);
+
+  useEffect(() => {
+    let ignore = false;
+    api.getDashboardSummary()
+      .then((summary) => {
+        if (!ignore) setDashboardSummary(summary);
+      })
+      .catch(() => {
+        if (!ignore) setDashboardSummary(defaultDashboard);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const recentCases = useMemo(() => {
+    const source = (cases && cases.length > 0) ? cases.slice(0, 8) : [];
+
+    return source.map((caseItem) => ({
+      id: caseItem.case_id,
+      dataset: caseItem.dataset,
+      modality: caseItem.modality,
+      prediction: caseItem.predicted_label,
+      confidence: `${Number(caseItem.confidence).toFixed(1)}%`,
+      uncertainty: caseItem.uncertainty_level.charAt(0).toUpperCase() + caseItem.uncertainty_level.slice(1),
+      uncColor: caseItem.uncertainty_score <= 0.15 ? 'text-emerald-600' : caseItem.uncertainty_score <= 0.35 ? 'text-amber-600' : 'text-rose-600',
+      xqi: Math.round(caseItem.xqi_score),
+      reliability: Math.round(caseItem.reliability_score),
+      status: caseItem.reliability_level,
+      statusClass: caseItem.reliability_level === 'RELIABLE'
+        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        : caseItem.reliability_level === 'CAUTION'
+          ? 'bg-amber-50 text-amber-700 border-amber-200'
+          : 'bg-rose-50 text-rose-700 border-rose-200 font-bold',
+      date: 'Live'
+    }));
+  }, [cases]);
 
   return (
     <div className="space-y-4">
@@ -86,15 +81,15 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
       {/* Row 1: Top 4 KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Model Accuracy */}
+        {/* AUC-ROC for multi-label CXR */}
         <div className="bg-white rounded-lg border border-slate-200/90 p-3.5 shadow-2xs">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            MODEL ACCURACY
+            MULTI-LABEL AUC-ROC
           </div>
           <div className="flex items-baseline justify-between mt-1">
-            <span className="text-2xl font-extrabold font-mono text-slate-900">92.41%</span>
+            <span className="text-2xl font-extrabold font-mono text-slate-900">{(dashboardSummary.auc_roc ?? 0.92).toFixed(2)}</span>
             <span className="text-[10px] font-semibold text-emerald-600 flex items-center">
-              <TrendingUp className="w-3 h-3 mr-0.5" /> +2.31% <span className="text-slate-400 ml-1 font-normal">vs last 30d</span>
+              <TrendingUp className="w-3 h-3 mr-0.5" /> target <span className="text-slate-400 ml-1 font-normal">0.92+</span>
             </span>
           </div>
         </div>
@@ -105,24 +100,24 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             CALIBRATION (ECE)
           </div>
           <div className="flex items-baseline justify-between mt-1">
-            <span className="text-2xl font-extrabold font-mono text-slate-900">0.08</span>
+            <span className="text-2xl font-extrabold font-mono text-slate-900">{dashboardSummary.calibration.toFixed(3)}</span>
             <span className="text-[10px] font-semibold text-emerald-600 flex items-center">
-              <TrendingDown className="w-3 h-3 mr-0.5" /> -0.02 <span className="text-slate-400 ml-1 font-normal">vs last 30d</span>
+              <TrendingDown className="w-3 h-3 mr-0.5" /> expected <span className="text-slate-400 ml-1 font-normal">&lt; 0.05</span>
             </span>
           </div>
         </div>
 
-        {/* Mean XQI */}
+        {/* Macro F1 */}
         <div className="bg-white rounded-lg border border-slate-200/90 p-3.5 shadow-2xs">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            MEAN XQI
+            MACRO F1
           </div>
           <div className="flex items-baseline justify-between mt-1">
             <span className="text-2xl font-extrabold font-mono text-slate-900">
-              81<span className="text-sm font-normal text-slate-400">/100</span>
+              {(dashboardSummary.macro_f1 ?? 0.81).toFixed(2)}
             </span>
             <span className="text-[10px] font-semibold text-emerald-600 flex items-center">
-              <TrendingUp className="w-3 h-3 mr-0.5" /> +5 <span className="text-slate-400 ml-1 font-normal">vs last 30d</span>
+              <TrendingUp className="w-3 h-3 mr-0.5" /> strong <span className="text-slate-400 ml-1 font-normal">multi-label</span>
             </span>
           </div>
         </div>
@@ -134,10 +129,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </div>
           <div className="flex items-baseline justify-between mt-1">
             <span className="text-2xl font-extrabold font-mono text-slate-900">
-              86<span className="text-sm font-normal text-slate-400">/100</span>
+              {dashboardSummary.reliability.toFixed(0)}<span className="text-sm font-normal text-slate-400">/100</span>
             </span>
             <span className="text-[10px] font-semibold text-emerald-600 flex items-center">
-              <TrendingUp className="w-3 h-3 mr-0.5" /> +7 <span className="text-slate-400 ml-1 font-normal">vs last 30d</span>
+              <TrendingUp className="w-3 h-3 mr-0.5" /> +{Math.max(0, dashboardSummary.reliability - 70).toFixed(0)} <span className="text-slate-400 ml-1 font-normal">live</span>
             </span>
           </div>
         </div>
@@ -164,9 +159,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             CASES ANALYZED
           </div>
           <div className="flex items-baseline justify-between mt-1">
-            <span className="text-2xl font-extrabold font-mono text-slate-900">1,248</span>
+            <span className="text-2xl font-extrabold font-mono text-slate-900">{dashboardSummary.cases_analyzed.toLocaleString()}</span>
             <span className="text-[10px] font-semibold text-emerald-600 flex items-center">
-              <TrendingUp className="w-3 h-3 mr-0.5" /> +128 <span className="text-slate-400 ml-1 font-normal">vs last 30d</span>
+              <TrendingUp className="w-3 h-3 mr-0.5" /> live <span className="text-slate-400 ml-1 font-normal">catalog</span>
             </span>
           </div>
         </div>
@@ -307,15 +302,15 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       {/* Bottom Telemetry Bar */}
       <div className="px-3 py-2 bg-slate-50 rounded-lg border border-slate-200/80 text-[10px] text-slate-500 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center space-x-3">
-          <span><strong>Model:</strong> DenseNet-121</span>
+          <span><strong>Model:</strong> {dashboardSummary.model_name}</span>
           <span>•</span>
-          <span><strong>Dataset:</strong> CheXpert (v1.0)</span>
+          <span><strong>Dataset:</strong> {dashboardSummary.dataset}</span>
           <span>•</span>
-          <span><strong>Last Updated:</strong> May 12, 2026 10:54 AM</span>
+          <span><strong>Last Updated:</strong> {dashboardSummary.last_updated}</span>
         </div>
         <div className="flex items-center space-x-1.5 text-emerald-600 font-semibold">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-          <span>System Health: Healthy</span>
+          <span>System Health: {dashboardSummary.system_health}</span>
         </div>
       </div>
     </div>

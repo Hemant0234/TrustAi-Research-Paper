@@ -65,6 +65,10 @@ class ReliabilityAssessment(BaseModel):
     evidence_concerns: List[str]
     should_trust_explanation: bool
     clinical_recommendation: str
+    uncertainty_penalty: Optional[float] = None
+    mc_variance_penalty: Optional[float] = None
+    entropy_penalty: Optional[float] = None
+    base_explanation_quality: Optional[float] = None
 
 class CaseSummary(BaseModel):
     case_id: str
@@ -94,7 +98,7 @@ class CaseAnalysisResponse(BaseModel):
     uncertainty: UncertaintyResult
     explanations: Dict[str, SaliencyMapData]
     fusion: FusionResult
-    xqi: XQIDimensions
+    xqi: Union[XQIDimensions, Any]
     reliability: ReliabilityAssessment
     is_demo: bool = True
     provenance: Dict[str, Any] = Field(default_factory=dict)

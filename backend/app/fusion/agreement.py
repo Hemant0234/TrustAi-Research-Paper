@@ -84,4 +84,7 @@ def compute_agreement_and_disagreement_maps(
     else:
         agreement_map = [[0.0 for _ in row] for row in agreement_map]
 
-    return agreement_map, disagreement_map
+    from app.fusion.normalization import SaliencyList
+    agr_sl = SaliencyList([SaliencyList(row) for row in agreement_map])
+    dis_sl = SaliencyList([SaliencyList(row) for row in disagreement_map])
+    return agr_sl, dis_sl

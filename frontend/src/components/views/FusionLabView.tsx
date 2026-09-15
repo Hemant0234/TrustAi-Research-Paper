@@ -13,7 +13,7 @@ export const FusionLabView: React.FC<FusionLabViewProps> = ({
 }) => {
   const methodNames = ['Grad-CAM++', 'SHAP', 'Integrated Gradients', 'Attention Rollout'];
 
-  const initialWeights = currentCase.fusion?.weights_used || currentCase.fusion?.weights || {
+  const initialWeights = currentCase.fusion?.weights_used || {
     'Grad-CAM++': 0.35,
     'SHAP': 0.25,
     'Integrated Gradients': 0.30,

@@ -55,9 +55,9 @@ export const ModelsView: React.FC = () => {
       accuracy: 88.4,
       calibration_ece: 0.048,
       parameters: '7.0M',
-      status: 'Active (Research Baseline)',
+      status: 'Available (Research Baseline)',
       layer_hook: 'features.denseblock4.denselayer16.conv2',
-      is_active: true,
+      is_active: false,
       weights_path: './checkpoints/densenet121_chexpert.pt'
     },
     {
@@ -87,10 +87,10 @@ export const ModelsView: React.FC = () => {
       accuracy: 90.1,
       calibration_ece: 0.038,
       parameters: '19.3M',
-      status: 'Active (Dermatology)',
+      status: 'Active (Primary Backbone)',
       layer_hook: '_blocks.31._project_conv',
-      is_active: false,
-      weights_path: './checkpoints/efficientnet_isic.pt'
+      is_active: true,
+      weights_path: './checkpoints/isic_dermoscopy/efficientnet_b4_isic_best.pth'
     },
     {
       id: 'vit-base',

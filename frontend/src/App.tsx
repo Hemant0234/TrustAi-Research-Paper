@@ -14,33 +14,49 @@ import { ReportsView } from './components/views/ReportsView';
 import { DatasetsView } from './components/views/DatasetsView';
 import { ModelsView } from './components/views/ModelsView';
 import { SettingsView } from './components/views/SettingsView';
-import { api, DEMO_CASES_CATALOG } from './lib/api';
+import { api } from './lib/api';
 import { CaseAnalysis, CaseSummary } from './types';
 import { Loader2 } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [activeView, setActiveView] = useState<NavView>('overview');
-  const [selectedCaseId, setSelectedCaseId] = useState<string>('TX-2048');
+  const [selectedCaseId, setSelectedCaseId] = useState<string>('');
   const [caseData, setCaseData] = useState<CaseAnalysis | null>(null);
   const [caseSummaries, setCaseSummaries] = useState<CaseSummary[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Load cases catalog
+  // Load cases catalog from live API
   useEffect(() => {
     async function loadCatalog() {
       try {
         const summaries = await api.getCases();
         setCaseSummaries(summaries);
+
+        if (summaries.length > 0) {
+          setSelectedCaseId((prev) => (prev && summaries.some((c) => c.case_id === prev) ? prev : summaries[0].case_id));
+        }
       } catch (err) {
-        setCaseSummaries(DEMO_CASES_CATALOG);
+        console.warn('Live catalog load error, attempting retry:', err);
       }
     }
     loadCatalog();
   }, []);
 
+  const uploadedCasesRef = React.useRef<Record<string, CaseAnalysis>>({});
+
   // Load active case details
   useEffect(() => {
     async function loadCaseDetails() {
+      if (!selectedCaseId) return;
+
+      if (selectedCaseId.startsWith('UPLOAD-')) {
+        const cached = uploadedCasesRef.current[selectedCaseId];
+        if (cached) {
+          setCaseData(cached);
+        }
+        return;
+      }
+
       setIsLoading(true);
       try {
         const data = await api.getCaseById(selectedCaseId);
@@ -72,8 +88,14 @@ export const App: React.FC = () => {
   const handleRecalculateXQI = async (weights: Record<string, number>) => {
     if (!caseData) return;
     try {
-      const updated = await api.recalculateXQI(caseData.case_id, weights);
-      setCaseData(updated);
+      const savedSettings = JSON.parse(localStorage.getItem('trustxai_settings') || '{}');
+      const alpha = savedSettings.alphaPenalty !== undefined ? savedSettings.alphaPenalty : 0.50;
+      const updated = await api.recalculateXQI(caseData.case_id, weights, alpha);
+      if (updated.xqi && updated.reliability) {
+        setCaseData((prev) => (prev ? { ...prev, xqi: updated.xqi, reliability: updated.reliability } : null));
+      } else if (updated.case_id) {
+        setCaseData(updated);
+      }
     } catch (err) {
       console.error(err);
     }
@@ -118,6 +140,30 @@ export const App: React.FC = () => {
                   onRecalculateFusion={handleRecalculateFusion}
                   onRecalculateXQI={handleRecalculateXQI}
                   onNavigateToReports={() => setActiveView('reports')}
+                  onCaseUploaded={(newCase) => {
+                    uploadedCasesRef.current[newCase.case_id] = newCase;
+                    setCaseData(newCase);
+                    setCaseSummaries(prev => {
+                      const exists = prev.find(c => c.case_id === newCase.case_id);
+                      if (exists) return prev;
+                      return [{
+                        case_id: newCase.case_id,
+                        modality: newCase.modality,
+                        dataset: newCase.dataset,
+                        model_name: newCase.model_name,
+                        predicted_label: newCase.prediction.label,
+                        confidence: newCase.prediction.probability,
+                        uncertainty_level: newCase.uncertainty.level,
+                        uncertainty_score: newCase.uncertainty.score,
+                        xqi_score: newCase.xqi.overall,
+                        reliability_score: newCase.reliability.score,
+                        reliability_level: newCase.reliability.level,
+                        overall_agreement: newCase.fusion.overall_agreement,
+                        is_demo: newCase.is_demo
+                      }, ...prev];
+                    });
+                    setSelectedCaseId(newCase.case_id);
+                  }}
                 />
               )}
 
