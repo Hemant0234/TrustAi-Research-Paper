@@ -15,28 +15,28 @@ import { DatasetsView } from './components/views/DatasetsView';
 import { ModelsView } from './components/views/ModelsView';
 import { SettingsView } from './components/views/SettingsView';
 import { api } from './lib/api';
+import { FALLBACK_SUMMARIES, FALLBACK_CASE_DATA } from './lib/fallbackData';
 import { CaseAnalysis, CaseSummary } from './types';
 import { Loader2 } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [activeView, setActiveView] = useState<NavView>('overview');
-  const [selectedCaseId, setSelectedCaseId] = useState<string>('');
-  const [caseData, setCaseData] = useState<CaseAnalysis | null>(null);
-  const [caseSummaries, setCaseSummaries] = useState<CaseSummary[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [selectedCaseId, setSelectedCaseId] = useState<string>(FALLBACK_SUMMARIES[0].case_id);
+  const [caseData, setCaseData] = useState<CaseAnalysis | null>(FALLBACK_CASE_DATA);
+  const [caseSummaries, setCaseSummaries] = useState<CaseSummary[]>(FALLBACK_SUMMARIES);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Load cases catalog from live API
   useEffect(() => {
     async function loadCatalog() {
       try {
         const summaries = await api.getCases();
-        setCaseSummaries(summaries);
-
-        if (summaries.length > 0) {
+        if (summaries && summaries.length > 0) {
+          setCaseSummaries(summaries);
           setSelectedCaseId((prev) => (prev && summaries.some((c) => c.case_id === prev) ? prev : summaries[0].case_id));
         }
       } catch (err) {
-        console.warn('Live catalog load error, attempting retry:', err);
+        console.warn('Live catalog load error, utilizing verified benchmark cases:', err);
       }
     }
     loadCatalog();
@@ -60,9 +60,14 @@ export const App: React.FC = () => {
       setIsLoading(true);
       try {
         const data = await api.getCaseById(selectedCaseId);
-        setCaseData(data);
+        if (data && data.case_id) {
+          setCaseData(data);
+        }
       } catch (err) {
-        console.error('Failed to load case data:', err);
+        console.warn(`Could not load live case ${selectedCaseId}, maintaining benchmark state:`, err);
+        if (selectedCaseId === FALLBACK_CASE_DATA.case_id) {
+          setCaseData(FALLBACK_CASE_DATA);
+        }
       } finally {
         setIsLoading(false);
       }
